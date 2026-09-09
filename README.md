@@ -2,7 +2,7 @@
 
 独立的简体中文聊天网站：React 静态前端、Cloudflare Module Worker、IndexedDB 本机历史。用户使用自己的 Gateway Key；TXT、Markdown、JSON、CSV、PDF、DOCX 和图片先在本机检查，确认发送时只传输规范化内容。
 
-已实现可运行的本地首版与自动化测试。**尚未完成 P0-E 正式发布验收**：正式域名、Cloudflare 账户、低额度验收 Key、实际模型和设备矩阵尚未提供。生产模板默认关闭模型与附件开关；这不代表完整首版已经验收。
+已部署至 [chat.water555.com](https://chat.water555.com)，使用 Workers Free，默认 Gateway 为 `https://codex.water555.com`。当前启用文本附件和图片，PDF/DOCX 暂关闭；模型配置为 `gpt-5.5`、`gpt-5.6`、`gpt-6`，实际可选列表仍与用户 Key 的权限取交集。**尚未完成 P0-E 正式发布验收**：真实 Key 下的模型 ID、图片能力、设备矩阵和 Free CPU 限额下的运行表现仍待验收。
 
 ## 本地运行
 

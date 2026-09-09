@@ -11,7 +11,7 @@
 | P0-B | TXT/MD/JSON/CSV、JPEG/PNG/静态 WebP、批次预检、单队列、任务销毁、提取确认、同产物预览发送、上下文去重与起点选择、缺失附件阻止 |
 | P0-C | PDF.js 原始结构只读审查补丁、逐页受限文字提取、OCR 判定；DOCX ZIP 头/目录/CRC/实际展开量、受限 XML 和文字/简单表格 |
 | P0-D | 八个 Store、档案内 Blob 去重、GC、应用预算、Store ZIP 标准备份、重新审查、分批暂存发布、ID 重映射、只读恢复、跨标签页通知 |
-| P0-E | 正式部署模板、静态安全头、IP 平台限流配置、日志关闭、部署 dry-run、真实联调脚本/操作说明；正式发布仍待外部条件 |
+| P0-E | 已部署 Cloudflare Workers Free 自定义域名、静态安全头、IP 平台限流、日志关闭、真实联调脚本；真实模型与资源边界验收仍待完成 |
 
 ## 自动验证
 
@@ -39,16 +39,16 @@
 
 | 待验收项 | 所需外部条件 |
 | --- | --- |
-| Cloudflare 正式部署、Paid 套餐、DNS、静态头与分布式限流 | 正式账户与域名 |
+| Workers Free 的实际 CPU 负载与分布式限流 | 已部署账户、真实请求与平台观测；网站与公开配置已可访问 |
 | 两轮文字、图片续问、PDF/DOCX、长回复、停止、额度不足、工具自动注入/usage | 固定 Gateway 来源、专用低额度 Key、实际模型集合 |
 | 停止后 Gateway 租约与额度结算释放 | Gateway 运行实例和只含安全元数据的观测 |
 | 桌面 Chrome/Edge/Firefox/Safari、iOS Safari、Android Chrome | 实际设备和准确稳定版本；Playwright Chromium/手机视口不能替代设备矩阵 |
 | 4 MiB 边界、并发长流、接近 200 MiB 历史、低内存设备 | 可丢弃的实测环境与资源采集 |
 | 所有格式全量容量 ±1、真实 OOM/后台冻结/站点升级链路 | 可丢弃浏览器与发布环境；目前自动测试只覆盖已列出的合成资源分支 |
 
-因此当前交付状态是可运行实现与本机验证，**完整 P0-A 至 P0-E 验收尚未完成**。关闭未验收开关只用于保护部署模板，不替代这些门槛。
+因此当前交付状态是可运行实现、本机验证与 Workers Free 部署，**完整 P0-A 至 P0-E 验收尚未完成**。关闭未验收开关不替代这些门槛。
 
-## 最终运行记录
+## 初版本地运行记录
 
 执行环境为 Ubuntu 24.04.4 LTS、Node.js 24.16.0、pnpm 11.18.0。Chromium 为 Google Chrome for Testing **153.0.8010.12**，Playwright **1.63.0**，桌面视口和 390×844 手机视口；不是实际手机或 Safari/Edge 验收。
 
@@ -66,3 +66,23 @@
 最终静态构建约 2.3 MiB。主入口 387.70 kB（gzip 118.71 kB），Markdown 按需块 115.89 kB；PDF 解析块约 1.63 MB，位于独立 Worker 路径，未放入主页面执行。大小为构建工具报告的十进制 kB；产品限额仍采用二进制 KiB/MiB。
 
 受此执行环境限制，Chromium 浏览器、缺少的动态库及中文字体下载到 `/tmp`，没有更改系统包；运行使用 `PLAYWRIGHT_BROWSERS_PATH`、`LD_LIBRARY_PATH`、`FONTCONFIG_FILE`。标准 Ubuntu CI 使用 Playwright `install --with-deps chromium`。Wrangler/workerd 使用本机回环监听，测试没有调用真实 Gateway 或付费模型。CI 配置已交付，尚未在外部 GitHub Actions 账户运行。
+
+## 2026-09-09 Workers Free 部署记录
+
+站点：[chat.water555.com](https://chat.water555.com)。Worker：`chat-browser`。最终版本：`af3ef777-ba3e-4ed6-95cb-ba2f249b54f9`。
+
+当前配置使用 Workers Free 默认 CPU 限额，保留 30 次/60 秒的 IP 限流绑定，关闭 `workers.dev` 与预览 URL。默认 Gateway 为 `https://codex.water555.com`；模型按提供的版本名称配置 `gpt-5.5`、`gpt-5.6`、`gpt-6`，图片能力开启。文本和图片附件已启用，PDF/DOCX 暂关闭。
+
+| 检查 | 本次结果 |
+| --- | --- |
+| `pnpm check` | 类型检查、11 个测试文件 **182/182** 单测与生产构建通过 |
+| `pnpm test:workers` | 原生 workerd **3/3** 通过 |
+| `pnpm test:e2e` | Chromium **19/19** 通过，约 3.2 分钟 |
+| 部署预检与正式上传 | Wrangler 4.130.0 接受配置；Worker 790.73 KiB / gzip 126.49 KiB，限流绑定与自定义域名发布成功 |
+| HTTPS 与公开配置 | 首页、`/api/config` 均返回 200，Gateway 与附件开关正确 |
+| API 边界 | 无 Key 的 `/api/models` 返回 401，错误 Origin 返回 403，未知 API 返回 JSON 404；均为 `no-store` |
+| 静态资源 | 五个 JS/CSS/解析构建资源的 SHA-256 与本机构建一致，离线清单和 Service Worker 内容一致 |
+| 安全头 | 主页 CSP 与 `nosniff` 生效，解析资源附加 `connect-src 'none'`；HTML 的 `no-transform` 阻止自动 Analytics Beacon 注入 |
+| 线上 Chromium | 全新上下文成功创建本机档案，默认 Gateway 正确，Key 为空且显示未连接；无控制台错误、JS 异常或失败请求 |
+
+未提供真实 Gateway Key，本次未执行真实模型生成或图片识别。精确模型 ID、用户模型权限、图片能力、停止后的计费释放和 Free CPU 限额下的大附件/长回复表现仍待验证；以上部署结果不替代完整 P0 验收。
