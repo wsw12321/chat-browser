@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+verifyDepsBeforeRun: false
+allowBuilds:
+  esbuild: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - miniflare@5.20260908.0-alpha
+  - wrangler@4.130.0
+overrides:
+  zod: 4.5.4
+  sharp: 0.35.4
+patchedDependencies:
+  pdfjs-dist@6.3.289: patches/pdfjs-dist@6.3.289.patch

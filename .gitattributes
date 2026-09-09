@@ -1,0 +1,9 @@
+# Normalize text files to LF across platforms.
+* text=auto eol=lf
+
+# Preserve binary document fixtures exactly and suppress text diffs.
+*.pdf binary
+*.docx binary
+
+# Keep parser fixtures byte-for-byte, including intentional line endings and whitespace.
+tests/fixtures/** -text -whitespace

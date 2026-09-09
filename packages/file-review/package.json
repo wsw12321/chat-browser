@@ -1,0 +1,20 @@
+{
+  "name": "@chat/file-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core.ts"
+  },
+  "dependencies": {
+    "@chat/contracts": "workspace:*",
+    "fflate": "0.8.3",
+    "saxes": "6.0.0",
+    "papaparse": "5.5.3",
+    "pdfjs-dist": "6.3.289"
+  },
+  "devDependencies": {
+    "@types/papaparse": "5.3.16"
+  }
+}

@@ -1,0 +1,45 @@
+# Dependencies and local package stores
+node_modules/
+.pnpm-store/
+
+# Build output and caches
+dist/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Cloudflare local state and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+!.dev.vars.*.example
+
+# Environment secrets; keep sanitized example files versioned
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Test output
+playwright-report/
+test-results/
+blob-report/
+coverage/
+
+# Logs and diagnostic reports
+*.log
+*.log.*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Exported chat history may contain private user data
+*.chatbackup
+
+# OS metadata and editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+*.swp
+*.swo
+*~

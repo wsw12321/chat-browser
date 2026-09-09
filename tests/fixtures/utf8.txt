@@ -1,0 +1,2 @@
+你好，本机文件检查。
+No network request is required.

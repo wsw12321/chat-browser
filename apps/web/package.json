@@ -1,0 +1,14 @@
+{
+  "name": "@chat/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@chat/contracts": "workspace:*",
+    "@chat/file-review": "workspace:*",
+    "@chat/local-store": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0"
+  }
+}

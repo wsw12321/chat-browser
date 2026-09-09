@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chat-browser-local",
+  "main": "apps/edge/src/index.ts",
+  "compatibility_date": "2026-08-22",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "observability": { "enabled": false },
+  "vars": {
+    "PUBLIC_ORIGIN": "http://127.0.0.1:8787",
+    "GATEWAY_ORIGIN": "http://127.0.0.1:8790",
+    "ALLOW_LOCAL_GATEWAY": "true",
+    "POLICY_VERSION": "file-policy-v1",
+    "APP_CONTRACT_VERSION": "1",
+    "MODEL_CAPABILITIES": "[{\"id\":\"mock-text\",\"images\":false},{\"id\":\"mock-vision\",\"images\":true}]",
+    "FEATURE_PDF": "true",
+    "FEATURE_DOCX": "true",
+    "FEATURE_IMAGES": "true",
+  },
+}

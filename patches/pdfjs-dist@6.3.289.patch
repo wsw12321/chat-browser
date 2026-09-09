@@ -1,0 +1,166 @@
+--- a/build/pdf.worker.mjs
++++ b/build/pdf.worker.mjs
+@@ -40479,6 +40479,133 @@
+   }
+   return null;
+ }
++// chat-browser read-only review patch v1. No rendering or execution behavior changes.
++function webchatReviewStructure(root, xref, page = false) {
++  const report = { version: "pdfjs-6.3.289-review1", ok: true, reason: null, checked: 0 };
++  const seen = new Set();
++  const fail = reason => { report.ok = false; report.reason ||= reason; };
++  const resolve = value => xref.fetchIfRef(value);
++  const tick = depth => {
++    if (++report.checked > 50000 || depth > 64) {
++      fail("document_too_complex");
++      throw new FormatError("Webchat review complexity");
++    }
++  };
++  const action = (raw, depth = 0) => {
++    tick(depth);
++    const value = resolve(raw);
++    if (Array.isArray(value)) { for (const item of value) action(item, depth + 1); return; }
++    if (!(value instanceof Dict) || seen.has(value)) { fail("document_unverifiable"); return; }
++    seen.add(value);
++    const type = value.get("S");
++    if (!(type instanceof Name)) { fail("document_unverifiable"); return; }
++    if (type.name === "GoTo") {
++      const destination = value.get("D");
++      if (!(destination instanceof Name) && typeof destination !== "string" && !isValidExplicitDest(destination)) fail("document_unverifiable");
++    } else if (type.name === "Named") {
++      const name = value.get("N");
++      if (!(name instanceof Name) || !["NextPage", "PrevPage", "FirstPage", "LastPage", "GoBack", "GoForward"].includes(name.name)) fail("active_content_not_allowed");
++    } else {
++      fail("active_content_not_allowed");
++    }
++    if (value.has("Next")) action(value.getRaw("Next"), depth + 1);
++  };
++  const additional = dict => {
++    if (!dict.has("AA")) return;
++    const value = dict.get("AA");
++    if (!(value instanceof Dict)) { fail("document_unverifiable"); return; }
++    for (const key of value.getKeys()) action(value.getRaw(key));
++  };
++  const attachment = dict => {
++    if (dict.has("AF") || dict.has("EF") || dict.has("FS")) fail("active_content_not_allowed");
++  };
++  try {
++    if (xref.countUpdatesAfter(0) === null) fail("document_unverifiable");
++    if (xref.trailer?.has("Encrypt")) fail("encrypted_document");
++    if (!(root instanceof Dict)) { fail("document_unverifiable"); return report; }
++    attachment(root);
++    additional(root);
++    if (!page) {
++      // Associated files can live on structure elements and annotation parents.
++      // Walk dictionaries/references only; never decompress or execute stream contents.
++      const pending = [{ raw: root, depth: 0 }], graphSeen = new Set(), refsSeen = new Set();
++      let graphEdges = 0;
++      const enqueue = (raw, depth) => { if (++graphEdges > 50000) { fail("document_too_complex"); throw new FormatError("Webchat review graph"); } pending.push({ raw, depth }); };
++      const activeNames = new Set(["JavaScript", "Launch", "SubmitForm", "ImportData", "URI", "GoToR", "GoToE", "Rendition", "Movie", "Sound", "Thread", "Trans", "SetOCGState", "Hide", "ResetForm"]);
++      while (pending.length) {
++        const { raw, depth } = pending.pop();
++        if (raw instanceof Ref) {
++          const id = raw.toString(); if (refsSeen.has(id)) continue; refsSeen.add(id);
++        }
++        let value = resolve(raw);
++        if (value instanceof BaseStream) value = value.dict;
++        if (!(value instanceof Dict) && !Array.isArray(value)) continue;
++        if (graphSeen.has(value)) continue; graphSeen.add(value); tick(depth);
++        if (Array.isArray(value)) {
++          for (const item of value) enqueue(item, depth + 1);
++          continue;
++        }
++        const type = value.get("Type"), subtype = value.get("Subtype"), actionType = value.get("S");
++        if ((type instanceof Name && ["Filespec", "EmbeddedFile"].includes(type.name)) || (value.has("EF") && (value.has("F") || value.has("UF")))) fail("active_content_not_allowed");
++        if (type instanceof Name && type.name === "Action") action(value);
++        if (actionType instanceof Name && activeNames.has(actionType.name)) fail("active_content_not_allowed");
++        if (subtype instanceof Name && ["Widget", "FileAttachment", "Sound", "Movie", "Screen", "RichMedia", "3D"].includes(subtype.name)) fail("active_content_not_allowed");
++        for (const key of value.getKeys()) enqueue(value.getRaw(key), depth + 1);
++      }
++      if (root.has("OpenAction")) {
++        const value = root.get("OpenAction");
++        if (value instanceof Dict) action(value);
++        else if (!isValidExplicitDest(value)) fail("document_unverifiable");
++      }
++      if (root.has("Names")) {
++        const names = root.get("Names");
++        if (!(names instanceof Dict)) fail("document_unverifiable");
++        else if (names.has("EmbeddedFiles") || names.has("JavaScript")) fail("active_content_not_allowed");
++      }
++      if (root.has("AcroForm")) {
++        const form = root.get("AcroForm");
++        if (!(form instanceof Dict)) fail("document_unverifiable");
++        else {
++          const fields = form.get("Fields");
++          if (form.has("XFA") || form.has("CO") || (Array.isArray(fields) && fields.length)) fail("active_content_not_allowed");
++          else if (fields !== undefined && !Array.isArray(fields)) fail("document_unverifiable");
++          additional(form);
++        }
++      }
++      if (root.has("Collection") || root.has("Requirements")) fail("active_content_not_allowed");
++      if (root.has("Outlines")) {
++        const outlines = root.get("Outlines");
++        const visited = new Set();
++        const walk = (raw, depth = 0) => {
++          tick(depth); const item = resolve(raw);
++          if (!(item instanceof Dict) || visited.has(item)) { fail("document_unverifiable"); return; }
++          visited.add(item); attachment(item); additional(item);
++          if (item.has("A")) action(item.getRaw("A"));
++          if (item.has("First")) walk(item.getRaw("First"), depth + 1);
++          if (item.has("Next")) walk(item.getRaw("Next"), depth);
++        };
++        walk(outlines);
++      }
++    } else if (root.has("Annots")) {
++      const annotations = root.get("Annots");
++      if (!Array.isArray(annotations) || annotations.length > 50000) fail("document_unverifiable");
++      else for (const raw of annotations) {
++        tick(0); const annotation = resolve(raw);
++        if (!(annotation instanceof Dict)) { fail("document_unverifiable"); continue; }
++        const subtype = annotation.get("Subtype");
++        if (!(subtype instanceof Name)) { fail("document_unverifiable"); continue; }
++        if (!["Text", "Link", "FreeText", "Line", "Square", "Circle", "Polygon", "PolyLine", "Highlight", "Underline", "Squiggly", "StrikeOut", "Stamp", "Caret", "Ink", "Popup"].includes(subtype.name)) fail("active_content_not_allowed");
++        attachment(annotation); additional(annotation);
++        if (annotation.has("A")) action(annotation.getRaw("A"));
++        if (annotation.has("RichMediaContent") || annotation.has("3DD") || annotation.has("Sound") || annotation.has("Movie")) fail("active_content_not_allowed");
++      }
++    }
++  } catch {
++    fail("document_unverifiable");
++  }
++  return report;
++}
++
+ class Catalog {
+   #actualNumPages = null;
+   #annotationAttachmentIdByRef = new RefMap();
+@@ -64694,6 +64821,15 @@
+     handler.on("GetPermissions", function () {
+       return pdfManager.ensureCatalog("permissions");
+     });
++    handler.on("GetWebchatReview", async function ({ pageIndex }) {
++      if (pageIndex === null) {
++        const catalog = await pdfManager.ensureCatalog("cloneDict", []);
++        return webchatReviewStructure(catalog, pdfManager.pdfDocument.xref);
++      }
++      if (!Number.isInteger(pageIndex) || pageIndex < 0) throw new FormatError("Invalid review page");
++      const page = await pdfManager.getPage(pageIndex);
++      return webchatReviewStructure(page.pageDict, page.xref, true);
++    });
+     handler.on("GetMetadata", function () {
+       return Promise.all([pdfManager.ensureDoc("documentInfo"), pdfManager.ensureCatalog("metadata"), pdfManager.ensureCatalog("hasStructTree")]);
+     });
+--- a/build/pdf.mjs
++++ b/build/pdf.mjs
+@@ -15642,6 +15642,11 @@
+   abort() {}
+ }
+ class PDFDocumentProxy {
++  /** Read-only, fail-closed structure review added by chat-browser. */
++  getWebchatReview(pageIndex = null) {
++    return this._transport.messageHandler.sendWithPromise("GetWebchatReview", { pageIndex });
++  }
++
+   constructor(pdfInfo, transport) {
+     this._pdfInfo = pdfInfo;
+     this._transport = transport;
