@@ -6,7 +6,7 @@
 
 1. 准备已授权的 Cloudflare 账户、稳定的聊天域名和独立 Gateway HTTPS 来源。Workers Free 可用于本次部署，不需要先开通 Paid。网站与 Gateway 来源不能相同；改变网站来源会使 IndexedDB 历史无法自动互通。
 2. 在 `wrangler.jsonc` 中维护账户、路由、`PUBLIC_ORIGIN`、`GATEWAY_ORIGIN` 与功能配置。当前自定义域名路由为 `chat.water555.com`，`workers_dev` 与 `preview_urls` 均关闭。两个来源变量必须是纯 HTTPS origin，不能带 `/v1` 或其他路径、URL 凭据、查询参数、片段；本次分别为 `https://chat.water555.com` 和 `https://codex.water555.com`。
-3. `MODEL_CAPABILITIES` 当前按所需版本配置 `gpt-5.5`、`gpt-5.6`、`gpt-6`，图片能力均设为 `true`；这些 ID 和能力尚待真实 Key 验证。实际模型列表与当前用户可访问的 Gateway 模型取交集，内部治理模型不允许进入列表。基础文本和图片附件已启用，PDF/DOCX 暂关闭。功能开启不等于验收通过；完整 P0 最终验收仍要求图片、PDF、DOCX 都通过。
+3. `MODEL_CAPABILITIES` 配置为 `gpt-5.5`、`gpt-5.6-luna`、`gpt-5.6-terra`、`gpt-5.6-sol`、`gpt-6-astra`，图片能力均设为 `true`；仓库配置须重新部署才会在线上生效，这些 ID 和能力尚待真实 Key 验证。实际模型列表与当前用户可访问的 Gateway 模型取交集，内部治理模型不允许进入列表。基础文本和图片附件已启用，PDF/DOCX 暂关闭。功能开启不等于验收通过；完整 P0 最终验收仍要求图片、PDF、DOCX 都通过。
 4. 不配置共享上游 API Key、OAuth Token 或管理员凭证。用户 Key 只从每次 Bearer 请求取得；不复制 Gateway Cookie。
 5. 配置保留 `RATE_LIMITER`（每个 IP、60 秒 30 次）并实测其作用范围和失败行为。它是平台限流设施，不是全球额度保证。Gateway 继续决定最终权限和计费。
 
@@ -25,6 +25,54 @@ pnpm deploy
 ```
 
 发布前确认配置中的精确模型与实际 Gateway 一致。dry-run 不创建远程资源，也不代表账户套餐、DNS、域名路由或网关已经可用。真实 Key、模型能力与设备矩阵仍需单独验收。
+
+## 连接 Git 仓库自动部署
+
+本仓库的 `origin` 为 `git@github.com:wsw12321/chat-browser.git`，生产分支为 `main`。在现有的 `chat-browser` Worker 中启用 Workers Builds，即可让推送到 `main` 的提交自动构建并发布到 `https://chat.water555.com`。Cloudflare 支持给已有 Worker 连接 Git 仓库，入口为 **Workers & Pages → chat-browser → Settings → Builds → Connect**。参见 [Workers Builds 官方步骤](https://developers.cloudflare.com/workers/ci-cd/builds/#connect-an-existing-worker)。
+
+1. 登录当前 Worker 所在的 Cloudflare 账户，按上述入口点击 **Connect**。
+2. 选择 GitHub，按提示安装或授权 Cloudflare GitHub App，并授予它访问 `wsw12321/chat-browser` 的权限；随后选中该仓库。
+3. 填写下面的构建配置。项目使用仓库根目录的 pnpm workspace 和 `wrangler.jsonc`；Worker 名称必须与配置文件中的 `name` 一致。字段说明见 [构建配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
+
+| 设置 | 本项目填写值 |
+| --- | --- |
+| Worker 名称 | `chat-browser` |
+| Git 仓库 | `wsw12321/chat-browser` |
+| 生产分支 / Git branch | `main` |
+| 根目录 / Root directory | 仓库根目录，保留默认值；不填 `apps/web` 或 `apps/edge` |
+| 构建命令 / Build command | `pnpm install --frozen-lockfile && pnpm check` |
+| 部署命令 / Deploy command | `pnpm exec wrangler deploy` |
+| 非生产分支构建 | 关闭；当前配置已关闭预览 URL |
+| 部署 API token | 使用 Cloudflare 自动创建的默认 Token |
+
+4. 在 **Build Variables and Secrets** 中添加以下构建变量；Cloudflare 支持通过 `NODE_VERSION`、`PNPM_VERSION` 固定工具版本，并通过 `SKIP_DEPENDENCY_INSTALL` 将依赖安装交给构建命令。参见 [构建环境与版本覆盖](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)。
+
+| 构建变量 | 值 |
+| --- | --- |
+| `NODE_VERSION` | `24.16.0` |
+| `PNPM_VERSION` | `11.18.0` |
+| `SKIP_DEPENDENCY_INSTALL` | `true` |
+
+5. 保存连接和构建设置后，在本地仓库推送已经完成的提交，触发本次更新：
+
+   ```sh
+   git push origin main
+   ```
+
+6. 在 Worker 的 **Deployments → View build history** 查看构建日志，确认本次提交构建和部署成功；随后打开 `https://chat.water555.com`，使用自己的 Gateway Key 验证模型列表。列表只显示五个配置模型与该 Key 可访问模型的交集。
+
+构建命令依次执行冻结依赖安装、类型检查、单元测试和前端构建；部署命令读取 `wrangler.jsonc`，发布 Worker 及其中配置的 `dist` 静态资源。运行时模型、域名、Gateway 和功能开关继续在 `wrangler.jsonc` 中维护，Gateway Key 由用户在网页输入。
+
+以后更新代码时，在本地验证后提交并推送，Cloudflare 会自动部署：
+
+```sh
+pnpm check
+git add <本次修改的文件>
+git commit -m "说明本次更新"
+git push origin main
+```
+
+只执行本地 `git commit` 不会更新线上站点；需要推送到已连接的生产分支并等待部署成功。
 
 ## 安全头与缓存
 

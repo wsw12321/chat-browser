@@ -19,7 +19,7 @@
     "GATEWAY_ORIGIN": "https://codex.water555.com",
     "POLICY_VERSION": "file-policy-v1",
     "APP_CONTRACT_VERSION": "1",
-    "MODEL_CAPABILITIES": "[{\"id\":\"gpt-5.5\",\"images\":true},{\"id\":\"gpt-5.6\",\"images\":true},{\"id\":\"gpt-6\",\"images\":true}]",
+    "MODEL_CAPABILITIES": "[{\"id\":\"gpt-5.5\",\"images\":true},{\"id\":\"gpt-5.6-luna\",\"images\":true},{\"id\":\"gpt-5.6-terra\",\"images\":true},{\"id\":\"gpt-5.6-sol\",\"images\":true},{\"id\":\"gpt-6-astra\",\"images\":true}]",
     "FEATURE_PDF": "false",
     "FEATURE_DOCX": "false",
     "FEATURE_IMAGES": "true",

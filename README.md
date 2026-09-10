@@ -2,7 +2,7 @@
 
 独立的简体中文聊天网站：React 静态前端、Cloudflare Module Worker、IndexedDB 本机历史。用户使用自己的 Gateway Key；TXT、Markdown、JSON、CSV、PDF、DOCX 和图片先在本机检查，确认发送时只传输规范化内容。
 
-已部署至 [chat.water555.com](https://chat.water555.com)，使用 Workers Free，默认 Gateway 为 `https://codex.water555.com`。当前启用文本附件和图片，PDF/DOCX 暂关闭；模型配置为 `gpt-5.5`、`gpt-5.6`、`gpt-6`，实际可选列表仍与用户 Key 的权限取交集。**尚未完成 P0-E 正式发布验收**：真实 Key 下的模型 ID、图片能力、设备矩阵和 Free CPU 限额下的运行表现仍待验收。
+已部署至 [chat.water555.com](https://chat.water555.com)，使用 Workers Free，默认 Gateway 为 `https://codex.water555.com`。当前启用文本附件和图片，PDF/DOCX 暂关闭；仓库中的模型配置为 `gpt-5.5`、`gpt-5.6-luna`、`gpt-5.6-terra`、`gpt-5.6-sol`、`gpt-6-astra`，部署后生效，实际可选列表仍与用户 Key 的权限取交集。**尚未完成 P0-E 正式发布验收**：真实 Key 下的模型 ID、图片能力、设备矩阵和 Free CPU 限额下的运行表现仍待验收。
 
 ## 本地运行
 
@@ -52,7 +52,7 @@ pnpm audit
 | `tests/fixtures` | 无真实用户资料的可公开合成样本 |
 
 设计基线：[docs/plan.md](docs/plan.md)。实施与剩余验收：[docs/acceptance.md](docs/acceptance.md)。
-部署：[docs/deployment.md](docs/deployment.md)。备份恢复：[docs/storage.md](docs/storage.md)。
+部署：[docs/deployment.md](docs/deployment.md)（含 [连接 Git 仓库自动部署](docs/deployment.md#连接-git-仓库自动部署)）。备份恢复：[docs/storage.md](docs/storage.md)。
 PDF 补丁：[docs/pdf-review.md](docs/pdf-review.md)。Gateway 核对：[docs/gateway-contract.md](docs/gateway-contract.md)。
 
 Key 不写入本机数据库、备份或服务端日志。历史与备份未加密；发送内容经过 Cloudflare、Gateway 和模型服务。关闭页面不保证继续生成，重试必须由用户明确发起，可能再次消耗额度。
